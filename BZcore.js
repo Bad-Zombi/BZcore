@@ -77,6 +77,7 @@ function locator(Player) {
 	}
 }
 
+// Thanks to Razztak (N4 Essentials) for this function
 function direcction(dir) {
     if ((dir > 337.5) || (dir < 22.5)) {
         return "North";
@@ -97,6 +98,7 @@ function direcction(dir) {
     }
 }
 
+// Thanks to Razztak (N4 Essentials) for this function
 function getAngle(angle) {
     if (angle < 0 ) {
         angle += 360;
