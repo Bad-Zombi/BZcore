@@ -166,8 +166,7 @@ function On_PlayerHurt(he) {
 
     if(he.Attacker.SteamID != he.Victim.SteamID){
     	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
-    }
-    
+    }   
 }
 
 function On_PlayerKilled(DeathEvent) {
@@ -319,6 +318,7 @@ function On_PlayerKilled(DeathEvent) {
 }
 
 function On_NPCHurt(he) {
+
 	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
 }
 
@@ -389,7 +389,6 @@ function On_NPCKilled(DeathEvent) {
 
 	//DeathEvent.Attacker.Message("Victim: " + victim + " @ " + victimPos);
 	//DeathEvent.Attacker.Message("Killer: " + attacker + " @ " +attackerPos);
-
 }
 
 function On_Command(Player, cmd, args) { 
