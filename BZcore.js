@@ -164,13 +164,17 @@ function On_PlayerSpawned(Player, spawnEvent) {
 
 function On_PlayerHurt(he) {
 
-    //Server.Broadcast(he.DamageType + " " + he.Victim.Health);
-    //Server.Broadcast(he.DamageEvent.status);
-
-    // if attacker is not victim then sent message to attacker telling them how much damage they did.
+    if(he.Attacker.SteamID != he.Victim.SteamID){
+    	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
+    }
+    
 }
 
 function On_PlayerKilled(DeathEvent) {
+
+	if(DeathEvent.Attacker.SteamID != DeathEvent.Victim.SteamID){
+    	DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
+    }
 	
 	var attId = String(DeathEvent.DamageEvent.attacker.id);
 	var attIdMain = String(DeathEvent.DamageEvent.attacker.idMain);
@@ -314,29 +318,78 @@ function On_PlayerKilled(DeathEvent) {
 	*/
 }
 
+function On_NPCHurt(he) {
+	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
+}
+
 function On_NPCKilled(DeathEvent) {
+	
+	DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
 
 	var attacker = DeathEvent.Attacker.Name;
 	var attackerSid = DeathEvent.Attacker.SteamID;
 	var attackerPos = DeathEvent.Attacker.X+"|"+DeathEvent.Attacker.Y+"|"+DeathEvent.Attacker.Z;
 
 	if(DeathEvent.DamageType == "Melee" && DeathEvent.WeaponName == undefined){
-		var weapon = "Hunting Bow";
+		var weapon = "a hunting bow";
 	} else if(DeathEvent.DamageType == "Explosion" && DeathEvent.WeaponName == undefined) {
-		var weapon = "Explosives";
+		var weapon = "explosives";
 	} else {
-		var weapon = DeathEvent.WeaponName;
+		
+		if(DeathEvent.WeaponName == "M4" || DeathEvent.WeaponName == "MP54A"){
+			weapon = "an " + DeathEvent.WeaponName;
+		} else {
+			weapon = "a " + DeathEvent.WeaponName;
+		}
+
 	}
 
-	var victim = DeathEvent.Victim.Name;
+	if(DeathEvent.WeaponName != "M4" && DeathEvent.WeaponName != "MP54A" && DeathEvent.WeaponName != "P250"){
+		weapon = Data.ToLower(weapon);
+	}
+	
+	var victim = "undefined";
+	switch(DeathEvent.Victim.Name){
+		case "Chicken_A":
+			victim = "a chicken";
+		break;
+
+		case "Rabbit_A":
+			victim = "a bunny";
+		break;
+
+		case "Stag_A":
+			victim = "a deer";
+		break;
+
+		case "Boar_A":
+			victim = "a pig";
+		break;
+
+		case "MutantWolf":
+			victim = "a mutant wolf";
+		break;
+
+		case "MutantBear":
+			victim = "a mutant bear";
+		break;
+
+		case "Wolf":
+			victim = "a wolf";
+		break;
+
+		case "Bear":
+			victim = "a bear";
+		break;
+	}
+
 	var victimPos = DeathEvent.Victim.X+"|"+DeathEvent.Victim.Y+"|"+DeathEvent.Victim.Z;
 
-	DeathEvent.Attacker.Message(victim+ " @ " +victimPos);
+	Server.Broadcast(attacker + " killed " + victim + " with " + weapon);
 
-	DeathEvent.Attacker.Message("Attacker: " + DeathEvent.Attacker.Name);
-	DeathEvent.Attacker.Message("DamageType: " + DeathEvent.DamageType);
-	DeathEvent.Attacker.Message("Entity: " + DeathEvent.Entity.Name);
-	DeathEvent.Attacker.Message("Victim: " + DeathEvent.Victim.Name);
+	//DeathEvent.Attacker.Message("Victim: " + victim + " @ " + victimPos);
+	//DeathEvent.Attacker.Message("Killer: " + attacker + " @ " +attackerPos);
+
 }
 
 function On_Command(Player, cmd, args) { 
@@ -434,6 +487,32 @@ function On_Command(Player, cmd, args) {
 			Player.Message(locator(Player));
 		break;
 
+		case "entities":
+			for (var x in World.Entities) {
+			     Plugin.Log("Entities",   x.Name + "," + x.X + "," + x.Y + "," + x.Z);
+			}
+
+			Plugin.Log("Entities", "---------------------------------------------------------------------------------------------- ");
+			Plugin.Log("Entities", " . ");
+			Plugin.Log("Entities", " . ");
+
+		break;
+
+		case "prefabs":
+			for (var x in World.Prefabs) {
+			     var output_name = x;
+				 var output_value = World.Prefabs[x];
+				 if(typeof(output_value) != "function"){
+				 	Plugin.Log("Prefabs", output_name + " : " + output_value);
+				 }
+				 Plugin.Log("Prefabs", "---------------------------------------------------------------------------------------------- ");
+			}
+
+			Plugin.Log("Prefabs", "---------------------------------------------------------------------------------------------- ");
+			Plugin.Log("Prefabs", " . ");
+			Plugin.Log("Prefabs", " . ");
+
+		break;
 		
     }
 }
