@@ -43,11 +43,13 @@ function sendData (data, method) {
 	if(method == true){
 		var url= server + "/" + serverScript + "?serverID=" + serverID + "&pass=" + serverPass + chunk;
 		var request = Web.GET(url);
+		Plugin.Log("SendLog", url); // ----------------------------- Remove This!
 	} else {
 		// default method it POST
 		var url= server + "/" + serverScript;
 		var chunk = "serverID=" + serverID + "&pass=" + serverPass + chunk;
 		var request = Web.POST(url, chunk);
+		Plugin.Log("SendLog", url + " [" + chunk + "]"); // ----------------------------- Remove This!
 	}
 	
 	return eval("(function(){return " + request + ";})()");
@@ -55,15 +57,17 @@ function sendData (data, method) {
 
 function locator(Player) {
 	try{
+
+		var location = Player.Location.ToString();	
+		location = location.replace("(", "");
+		location = location.replace(")", "");
+		location = location.replace(", ", "|");
+		location = location.replace(", ", "|");
+
 		var data = {};
 		data['action'] = "loc";
 		data['sid'] = Player.SteamID;
-		
-		var posx = parseInt(Player.X);
-		var posy = parseInt(Player.Y);
-		var posz = parseInt(Player.Z);
-
-		data['position'] = posx+"|"+posy+"|"+posz;
+		data['position'] = location;
 
 		var response = {};
 		response = sendData(data);
@@ -106,20 +110,53 @@ function getAngle(angle) {
     return angle;
 }
 
+// Use this for logging stuff
+function dataDump (fileName, eventName, dataObj, indent) {
+	if(indent == undefined){
+		var indent = "";
+	}
+	Plugin.Log(fileName, eventName+": ");
+	Plugin.Log(fileName, "------");
+	for (var x in dataObj) {
+	     var output_name = x;
+		 var output_value = dataObj[x];
+		 if(typeof(output_value) != "function"){
+		 	Plugin.Log(fileName, indent + output_name + " : " + output_value);
+		 }
+	}
+	
+	Plugin.Log(fileName, "---------------------------------------------------------------------------------------------- ");
+}
+
 // main plugin stuff:
 
 function On_PlayerConnected(Player){
+
+	// save steamID -> name in datastore for offline usage
+	try{
+		DataStore.Add(Player.SteamID, "BZName", Player.Name);
+		DataStore.Add(Player.SteamID, "BZProbe", "off");
+		DataStore.Save();
+	} catch(err) {
+		Plugin.Log("Error_log", "Error Message: " + err.message + " in On_PlayerConnected datastore name");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in On_PlayerConnected datastore name")
+	}
+		
 	// Set some defaults on player connect:
 		Player.SendCommand("censor.nudity False");
 		Player.SendCommand("grass.on False");
 		Player.SendCommand("gui.hide_branding False");
 
 	// log connection status to website:
-		var name = Player.Name;
-		var sid = Player.SteamID;
-		var ip = Player.IP;
-		var url= server+"/"+serverScript+"?serverID="+serverID+"&pass="+serverPass+"&action=connect&sid="+sid+"&name="+name+"&ip="+ip;
-		var request = Web.GET(url);
+		
+		var data = {};
+		data['action'] = "connect";
+		data['name'] = Player.Name;
+		data['sid'] = Player.SteamID;
+		data['ip'] = Player.IP;
+
+		var response = {};
+		response = sendData(data);
 
 	// just saving this json junk for later:
 	//var response = eval("(function(){return " + strJSON + ";})()");
@@ -129,9 +166,13 @@ function On_PlayerConnected(Player){
 function On_PlayerDisconnected(Player){	
 	// log Disconnect to website
 		//locator(Player, false);
-		var sid = Player.SteamID;
-		var url= server+"/"+serverScript+"?serverID="+serverID+"&pass="+serverPass+"&action=disconnect&sid="+sid;
-		var request = Web.GET(url);
+		locator(Player);
+
+		var data = {};
+		data['action'] = "disconnect";
+		data['sid'] = Player.SteamID;
+		sendData(data);
+		
 }
 
 function On_PlayerSpawned(Player, spawnEvent) {
@@ -159,14 +200,18 @@ function On_PlayerSpawned(Player, spawnEvent) {
 	    }
 
 	// record spawn position
-		locator(Player, false); 
+		response = locator(Player);
 }
 
 function On_PlayerHurt(he) {
 
-    if(he.Attacker.SteamID != he.Victim.SteamID){
+	
+    if(he.Attacker.SteamID != he.Victim.SteamID && he.Victim.SteamID != undefined){
     	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
+    	//he.Attacker.InventoryNotice("player"); // ----------------------------- Remove This!
     }   
+
+    
 }
 
 function On_PlayerKilled(DeathEvent) {
@@ -320,6 +365,7 @@ function On_PlayerKilled(DeathEvent) {
 function On_NPCHurt(he) {
 
 	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
+	//he.Attacker.InventoryNotice("npc"); // ----------------------------- Remove This!
 }
 
 function On_NPCKilled(DeathEvent) {
@@ -391,16 +437,77 @@ function On_NPCKilled(DeathEvent) {
 	//DeathEvent.Attacker.Message("Killer: " + attacker + " @ " +attackerPos);
 }
 
+
+
+function On_EntityHurt(he) {
+
+	var OwnerSteamID = he.Entity.OwnerID.ToString();
+	var OwnerName = DataStore.Get(OwnerSteamID, "BZName");
+
+	try{
+
+		
+		var ProbeStatus = DataStore.Get(he.Attacker.SteamID, "BZProbe");
+		
+		if(OwnerSteamID != he.Attacker.SteamID && ProbeStatus == "on"){
+			//he.Attacker.Notice("You hit " + OwnerName + "'s object!");
+			if (OwnerName == undefined || OwnerName == null){
+				he.Attacker.Notice("We have no idea who owns this object!");
+			} else {
+				he.Attacker.Notice(OwnerName + " owns this object.");
+			}	
+		} else if(OwnerSteamID == he.Attacker.SteamID && ProbeStatus == "on") {
+			he.Attacker.Notice("You own this object.");
+		}
+
+	} catch(err) {
+
+		Plugin.Log("Error_log", "Error Message: " + err.message + " in On_EntityHurt");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in On_EntityHurt")
+
+	}
+
+	
+
+
+	if (he.Entity.Name == "MaleSleeper") {
+        Server.Broadcast(he.Attacker.Name + " murdered " + OwnerName + " in his sleep!");
+    } else if(OwnerSteamID != he.Attacker.SteamID && he.DamageEvent.status == 1) {
+    	Server.Broadcast(he.Attacker.Name + " destroyed " + OwnerName + "'s " + he.Entity.Name + "!");
+    }
+
+
+
+
+}
+
 function On_Command(Player, cmd, args) { 
 
 	cmd = Data.ToLower(cmd);
 	switch(cmd) {
 	
 		case "test":
+			
+			dataDump ("testdump", "event", Player, " - ");
 
-			Player.Message("time: "+ System.DateTime.Now.ToString("yyyy-mm-dd hh:mm:ss"));
-			var time = System.DateTime.Now.toString("hh:mm tt");
-			Player.Message("Server time is " + time);
+		break;
+
+		case "probe":
+
+			try{
+				var ProbeStatus = DataStore.Get(Player.SteamID, "BZProbe");
+
+				if(ProbeStatus == "on"){
+					DataStore.Add(Player.SteamID, "BZProbe", "off");
+					Player.Message("Probe is inactive.");
+				} else {
+					DataStore.Add(Player.SteamID, "BZProbe", "on");
+					Player.Message("Probe is active. Hit an object to find out the owner name.");
+				}
+			} catch(err) {
+				Plugin.Log("Error_log", "Error Message: " + err.message + " in probe command");
+		        Plugin.Log("Error_log", "Error Description: " + err.description + " in probe command")
+			}
 
 		break;
 
