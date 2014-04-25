@@ -51,6 +51,42 @@ function playerLocationsCallback () {
     }
 }
 
+function playersonlineCallback () {
+	try{
+		var players = Server.Players;
+		var online = players.Count;
+				
+		
+		var data = {};
+		data['action'] = "update_online";
+
+
+		if(online >= 1){
+			var count = 0;
+			var playerData = "{";
+			for (var x in players){
+				count++;
+				playerData += '"' + count + '":"' + x.SteamID+ '"';
+				if(count != online){
+					playerData += ',';
+				}	
+			}
+			playerData += "}";
+
+			data['players'] = playerData;
+		} else {
+			data['players'] = 'nope';
+		}
+			
+		var response = {};
+		response = sendData(data);
+			
+	} catch (err) {
+        Plugin.Log("Error_log", "Error Message: " + err.message + " in playersonlineCallback");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in playersonlineCallback")
+    }
+}
+
 function sendData (data, method) {
 	var iniConf = Plugin.GetIni("cfg_Core");
     var server = iniConf.GetSetting("ServerInfo", "server");
@@ -80,14 +116,19 @@ function sendData (data, method) {
 	return eval("(function(){return " + request + ";})()");
 }
 
+function loc2web (worldObj) {
+	var location = worldObj.Location.ToString();	
+	location = location.replace("(", "");
+	location = location.replace(")", "");
+	location = location.replace(", ", "|");
+	location = location.replace(", ", "|");
+	return location;
+}
+
 function locator(Player) {
 	try{
 
-		var location = Player.Location.ToString();	
-		location = location.replace("(", "");
-		location = location.replace(")", "");
-		location = location.replace(", ", "|");
-		location = location.replace(", ", "|");
+		var location = loc2web(Player);
 
 		var data = {};
 		data['action'] = "loc";
@@ -172,6 +213,7 @@ function On_PluginInit() {
         }
 
         Plugin.CreateTimer("playerLocations", 3 * 1000).Start();
+        Plugin.CreateTimer("playersonline", 10 * 1000).Start();
 
 	    var data = {};
 		data['action'] = "ServerInit";
@@ -187,7 +229,6 @@ function On_PluginInit() {
 
 function On_ServerInit() { 
 	Server.server_message_name = "Rustard"; 
-
 	
 	
 }
@@ -280,24 +321,37 @@ function On_PlayerHurt(he) {
 
 function On_PlayerKilled(DeathEvent) {
 
-	if(DeathEvent.Attacker.SteamID != DeathEvent.Victim.SteamID){
-    	DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
-    }
 	
-	var attId = String(DeathEvent.DamageEvent.attacker.id);
-	var attIdMain = String(DeathEvent.DamageEvent.attacker.idMain);
+	
+	
 
-	// Determin if its murder:
-	if(attIdMain.indexOf(DeathEvent.Victim.SteamID, 0) >= 0){
-		var murder = false;
-	} else if(attIdMain.indexOf("player_soldier", 0) >= 0){
-		var murder = true;
-	} else {
-		var murder = false;
+	// Determine if its murder:
+	try{
+
+		var attId = String(DeathEvent.DamageEvent.attacker.id);
+		var attIdMain = String(DeathEvent.DamageEvent.attacker.idMain);
+
+		
+		if(attIdMain.indexOf(DeathEvent.Victim.SteamID, 0) >= 0){
+			var murder = false;
+			
+		} else if(attIdMain.indexOf("player_soldier", 0) >= 0){
+			var murder = true;
+			
+			DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
+		    
+		} else {
+			var murder = false;
+			
+		}
+	} catch(err) {
+		Plugin.Log("Error_log", "Error Message: " + err.message + " in On_PlayerKilled murder test");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in On_PlayerKilled murder test")
 	}
 	
 	// Determine COD and death category:
 	var cod = "unknown";
+	var wtype = "unknown";
 	var deathtype = "unknown";
 
 	if(attIdMain.indexOf('DeployableObject', 0) >= 0){
@@ -305,18 +359,22 @@ function On_PlayerKilled(DeathEvent) {
         if(attIdMain.indexOf('LargeWoodSpikeWall', 0) >= 0){
         	deathtype = "item";
         	cod = "some large spikes";
+        	wtype = 'spikes';
         } else if(attIdMain.indexOf('WoodSpikeWall', 0) >= 0){
         	deathtype = "item";
         	cod = "a spike wall";
+        	wtype = 'spikes';
         } else if(attIdMain.indexOf('ExplosiveCharge', 0) >= 0){
         	deathtype = "explosives";
         	cod = "C4";
+        	wtype = 'C4';
         }
 
     } else if(attId.indexOf('TimedGrenade', 0) >= 0){
 
     	deathtype = "explosives";
     	cod = "a grenade";
+    	wtype = 'grenade';
 
     } else if(attIdMain.indexOf('Wolf', 0) >= 0 || attIdMain.indexOf('Bear', 0) >= 0){
 
@@ -324,12 +382,16 @@ function On_PlayerKilled(DeathEvent) {
 
     	if(attIdMain.indexOf('MutantWolf', 0) >= 0){
         	cod = "a mutant wolf";
+        	wtype = 'mutant wolf';
         } else if(attIdMain.indexOf('MutantBear', 0) >= 0){
         	cod = "a mutant bear";
+        	wtype = 'mutant bear';
         } else if(attIdMain.indexOf('Wolf', 0) >= 0){
         	cod = "a wolf";
+        	wtype = 'wolf';
         } else if(attIdMain.indexOf('Bear', 0) >= 0){
         	cod = "a bear";
+        	wtype = 'bear';
         }
 
     } else if(attId.indexOf('Metabolism', 0) >= 0){
@@ -337,23 +399,29 @@ function On_PlayerKilled(DeathEvent) {
     	deathtype = "environmental";
     	if(DeathEvent.DamageAmount < 1){
     		cod = "starvation";
+    		wtype = 'starvation';
     	} else {
     		cod = "radiation poisoning";
+    		wtype = 'radiation';
     	}
 
     } else if(DeathEvent.Attacker.SteamID == DeathEvent.Victim.SteamID && DeathEvent.DamageAmount == 'Infinity'){
     	deathtype = "manual";
     	cod = "suicide";
+    	wtype = 'suicide';
     } else {
 
     	if(DeathEvent.Victim.IsInjured == true){
     		deathtype = "environmental";
     		cod = 'a nasty fall';
+    		wtype = 'fall';
     	} else if(DeathEvent.DamageAmount >= 15){
     		deathtype = "water";
     		cod = 'drowned';
+    		wtype = 'drowned';
     	} else {
     		cod = "bled out";
+    		wtype = 'bled out';
     	}
 
     }
@@ -363,11 +431,12 @@ function On_PlayerKilled(DeathEvent) {
     var victim = DeathEvent.Victim.Name;
 
     if(murder == true){
-
+    	
     	var killer = DeathEvent.Attacker.Name;
 		Server.Broadcast(killer + " just killed " + victim);
 
     } else {
+    	
     	switch(deathtype){
 
     		case "item":
@@ -398,7 +467,26 @@ function On_PlayerKilled(DeathEvent) {
     			Server.Broadcast(victim + " has died under mysterious circumstances.");
     		break;
 
+
+
     	}
+
+    	var data = {};
+		
+		data['action'] = "kill";
+
+		if(deathtype == 'ai'){
+			data['type'] = "aikill";
+			data['killer'] = wtype;
+		} else {
+			data['type'] = wtype;
+		}
+
+		data['victim'] = victim;
+		data['vsid'] = DeathEvent.Victim.SteamID;
+		data['vpos'] = loc2web(DeathEvent.Victim);
+
+		var response = sendData(data);
     }
 
     /*
@@ -433,72 +521,111 @@ function On_NPCHurt(he) {
 }
 
 function On_NPCKilled(DeathEvent) {
-	
-	DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
+	try{
+		DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
 
-	var attacker = DeathEvent.Attacker.Name;
-	var attackerSid = DeathEvent.Attacker.SteamID;
-	var attackerPos = DeathEvent.Attacker.X+"|"+DeathEvent.Attacker.Y+"|"+DeathEvent.Attacker.Z;
+		var attacker = DeathEvent.Attacker.Name;
+		var attackerSid = DeathEvent.Attacker.SteamID;
+		var attackerPos = loc2web(DeathEvent.Attacker);
 
-	if(DeathEvent.DamageType == "Melee" && DeathEvent.WeaponName == undefined){
-		var weapon = "a hunting bow";
-	} else if(DeathEvent.DamageType == "Explosion" && DeathEvent.WeaponName == undefined) {
-		var weapon = "explosives";
-	} else {
-		
-		if(DeathEvent.WeaponName == "M4" || DeathEvent.WeaponName == "MP54A"){
-			weapon = "an " + DeathEvent.WeaponName;
+		if(DeathEvent.DamageType == "Melee" && DeathEvent.WeaponName == undefined){
+			var weapon = "a hunting bow";
+			var wweapon = 'hunting bow';
+		} else if(DeathEvent.DamageType == "Explosion" && DeathEvent.WeaponName == undefined) {
+			var weapon = "explosives";
+			var wweapon = 'explosives';
 		} else {
-			weapon = "a " + DeathEvent.WeaponName;
+			
+			if(DeathEvent.WeaponName == "M4" || DeathEvent.WeaponName == "MP54A"){
+				var weapon = "an " + DeathEvent.WeaponName;
+			} else {
+				var weapon = "a " + DeathEvent.WeaponName;
+			}
+			var wweapon = DeathEvent.WeaponName;
+
 		}
 
+		if(DeathEvent.WeaponName != "M4" && DeathEvent.WeaponName != "MP54A" && DeathEvent.WeaponName != "P250"){
+			var weapon = Data.ToLower(weapon);
+			var wweapon = Data.ToLower(wweapon);
+		} 
+
+
+		
+		var victim = "undefined";
+		var wvictim = "undefined";
+		var reward = false;
+		switch(DeathEvent.Victim.Name){
+			case "Chicken_A":
+				victim = "a chicken";
+				wvictim = "chicken";
+			break;
+
+			case "Rabbit_A":
+				victim = "a bunny";
+				wvictim = "bunny";
+			break;
+
+			case "Stag_A":
+				victim = "a deer";
+				wvictim = "deer";
+			break;
+
+			case "Boar_A":
+				victim = "a pig";
+				wvictim = "pig";
+			break;
+
+			case "MutantWolf":
+				victim = "a mutant wolf";
+				wvictim = "mutant wolf";
+				reward = "reward";
+			break;
+
+			case "MutantBear":
+				victim = "a mutant bear";
+				wvictim = "mutant bear";
+				reward = "reward";
+			break;
+
+			case "Wolf":
+				victim = "a wolf";
+				wvictim = "wolf";
+				reward = "reward";
+			break;
+
+			case "Bear":
+				victim = "a bear";
+				wvictim = "bear";
+				reward = "reward";
+			break;
+		}
+
+		
+		Server.Broadcast(attacker + " killed " + victim + " with " + weapon);
+
+		var data = {};
+		data['action'] = "kill";
+		data['type'] = "animalkill";
+		data['killer'] = attacker;
+		data['ksid'] = attackerSid;
+		data['kpos'] = attackerPos;
+		data['victim'] = wvictim;
+		data['weapon'] = wweapon;
+		data['callback'] = reward;
+
+		var response = sendData(data);
+
+		if(response.reward != undefined){
+			DeathEvent.Attacker.InventoryNotice(response.reward);
+		}
+	} catch(err) {
+
+		Plugin.Log("Error_log", "Error Message: " + err.message + " in On_NPCKilled");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in On_NPCKilled")
+
 	}
 
-	if(DeathEvent.WeaponName != "M4" && DeathEvent.WeaponName != "MP54A" && DeathEvent.WeaponName != "P250"){
-		weapon = Data.ToLower(weapon);
-	}
-	
-	var victim = "undefined";
-	switch(DeathEvent.Victim.Name){
-		case "Chicken_A":
-			victim = "a chicken";
-		break;
-
-		case "Rabbit_A":
-			victim = "a bunny";
-		break;
-
-		case "Stag_A":
-			victim = "a deer";
-		break;
-
-		case "Boar_A":
-			victim = "a pig";
-		break;
-
-		case "MutantWolf":
-			victim = "a mutant wolf";
-		break;
-
-		case "MutantBear":
-			victim = "a mutant bear";
-		break;
-
-		case "Wolf":
-			victim = "a wolf";
-		break;
-
-		case "Bear":
-			victim = "a bear";
-		break;
-	}
-
-	var victimPos = DeathEvent.Victim.X+"|"+DeathEvent.Victim.Y+"|"+DeathEvent.Victim.Z;
-
-	Server.Broadcast(attacker + " killed " + victim + " with " + weapon);
-
-	//DeathEvent.Attacker.Message("Victim: " + victim + " @ " + victimPos);
-	//DeathEvent.Attacker.Message("Killer: " + attacker + " @ " +attackerPos);
 }
 
 
