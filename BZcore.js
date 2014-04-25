@@ -419,7 +419,7 @@ function On_PlayerKilled(DeathEvent) {
 
 		}
 
-		if(DeathEvent.WeaponName != "M4" && DeathEvent.WeaponName != "MP54A" && DeathEvent.WeaponName != "P250"){
+		if(DeathEvent.WeaponName != "M4" && DeathEvent.WeaponName != "MP54A" && DeathEvent.WeaponName != "P250" && weapon != "C4"){
 			var weapon = Data.ToLower(weapon);
 			var wweapon = Data.ToLower(wweapon);
 		} 
