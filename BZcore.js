@@ -795,7 +795,7 @@ function On_EntityHurt(he) {
 			    	DataStore.Add("BZtraps", pendingtrap, he.Entity);
 					Datastore.Remove(he.Attacker.SteamID, "BZTpending");
 					DataStore.Remove(he.Attacker.SteamID, "BZpending");
-					DataStore.Save();
+					DataStore.Save();	
 				}
 		    }
 		}
@@ -839,7 +839,7 @@ function On_DoorUse(Player, de) {
     } else {
     	var trapped = DataStore.Get("BZtraps", de.Entity.InstanceID);
     	if(trapped != undefined){
-    		Player.Message("Aaaah! Its a Trap!");
+    		Player.Notice("Aaaah! Its a Trap!");
     		//Player.Message("Target: " + trapped.InstanceID);
     		
     		trapped.Destroy();
