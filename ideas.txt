@@ -1,0 +1,64 @@
+
+
+proficiency system... a users starts with 0xp in each weapon (possibly other things too)
+as user gets more hits/kills with the item their xp goes up and they gain levels.
+lowest levels have a chance of accident like blowing self up with c4 or setting it wrong... shooting self in the foot etc.
+once user hits a "mid" level their damage gets increased as they add new levels.
+( start at -100xp   mid level is 0xp  damage increases up to +100xp)
+
+when a player dies if they are below o0x nothing changes... if they are above 0px they lose half of their extra xp.
+
+(user has -20 xp and they die... they start at -10xp  || user as +50xp and they die, they restart with +25 xp)
+
+earning of xp slows the higher they get over 0xp
+
+this could apply to hunting where they get bonus meat or something the better a hunter they are (aside from increased damage)
+
+possibly do it for gathering as well so they gather faster or get more resources from a node.
+
+maybe the same system could be used for picking locks?
+
+--------------------------------------------------------------------
+
+lockpicking...
+
+a user has a lockpick in their belt and face a door. they type /pick ## where ## is between 1 and 100
+
+the system comes up with a secret value range (e.g. 20 - 30)
+
+if the users number is between those values, the door will open.
+
+if using the proficiency system the secret number range is larger up to a 50% value?
+
+-----------------------------------------------------------------------
+
+rewrite arrow system fo animal instances are tracked. you can only reclaim arrows that have actually been fired into that animal.
+
+when a player is hit with arrows the datastore will track what time it happened... if it was within 10 minutes or so the arrow can be reclaimed when they die.
+
+if possible put arrows in dropped pack rather than just giving them directly to the player... should be easiest for reds and players... maybe see if animals can drop packs.
+
+if possible make it so animals give arrows back as harvest items.
+
+
+-----------------------------------------------------------------------
+
+when a player destroys a building part with explosives or pickaxe or whatever they will reclaim a percentage of the raw materials used to make the item
+
+when they remove their own item they will have a chance of getting the whole thing or a higher percentage of getting resources back.
+
+possibly tie in with proficiency syste... the more you have built the more you will get back and/or the higher the chance of getting back a whole item.
+
+----------------------------------------------------------------------------
+
+make a purchaseable trap setup... when created, user must have appropriate number of credits in inventory or wallet or whatever.
+
+player tags a storage box or stash that is sitting on a ceiling (maybe can work for doors too for blowing them up or opening/picking them)
+
+when a player other than them opens or destroys the stash or door the related ceiling vanishes for like 3 seconds and then is replaced... means user can place a trap room or spikes or something underneath it... 
+
+would work best with doors since the storage sitting on the ceiling would probably be destroyed in the process and may not be recreatable easily with the same instance id
+
+possible scenario... stand in front of door and type /settrap ... targeted door will open and close of owned by user.  user then must "hit" the activated ceiling object with a melee weapon to identify it. 
+
+trap is saved in the traps datastore unded door instance... each trap will get a random number of uses. once its all used up, the user will get a notification of some sort.
