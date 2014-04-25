@@ -1,30 +1,55 @@
-function On_PluginInit() { 
-    try {
-        if (!Plugin.IniExists("cfg_Core")) {
-            Plugin.CreateIni("cfg_Core");
-            var iniConf = Plugin.GetIni("cfg_Core");
-			iniConf.AddSetting("ServerInfo", "server", "http://rustard.com");
-			iniConf.AddSetting("ServerInfo", "serverID", 0); 
-            iniConf.AddSetting("ServerInfo", "serverPass", "");
-            iniConf.AddSetting("ServerInfo", "serverScript", "logger");
+// support functions:
 
-            iniConf.AddSetting("Settings", "replaceRock", true);
-            iniConf.AddSetting("Settings", "defaultWeapon", "Stone Hatchet");
+function playerLocationsCallback () {
+	try{
+		var players = Server.Players;
+		var online = players.Count;
 
-            iniConf.Save();
-        }
-        
-    } catch (err) {
-        Plugin.Log("Error_log", "Error Message: " + err.message + " in On_PluginInit");
-        Plugin.Log("Error_log", "Error Description: " + err.description + " in On_PluginInit")
+		if(online >= 1){
+			var playerData = "{";
+			var count = 0;
+			for (var x in players){
+				var location = x.Location.ToString();	
+				location = location.replace("(", "");
+				location = location.replace(")", "");
+				location = location.replace(", ", "|");
+				location = location.replace(", ", "|");
+				var lastLoc = DataStore.Get(x.SteamID, "BZloc");
+				if(lastLoc != undefined && location == lastLoc){
+					// do nothing... player has not moved
+				} else {
+					count++;
+					DataStore.Add(x.SteamID, "BZloc", location);
+					playerData += '"' + x.SteamID+ '": "' + location + '"';
+					if(count != online){
+						playerData += ',';
+					}
+					
+				}
+				
+			}
+			playerData += "}";
+
+			if(count >= 1){
+				var data = {};
+				data['action'] = "updatePlayerPositions";
+				data['playerData'] = playerData;
+				var response = {};
+				response = sendData(data);
+				//Server.Broadcast("sending data... a player moved...");
+			} else {
+				//Server.Broadcast("not sending... no movement...");
+			}
+			
+
+			
+		} 
+
+	} catch (err) {
+        Plugin.Log("Error_log", "Error Message: " + err.message + " in playerLocationsCallback");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in playerLocationsCallback")
     }
 }
-
-function On_ServerInit() { 
-	Server.server_message_name = "Rustard"; 
-}
-
-// support functions:
 
 function sendData (data, method) {
 	var iniConf = Plugin.GetIni("cfg_Core");
@@ -49,9 +74,9 @@ function sendData (data, method) {
 		var url= server + "/" + serverScript;
 		var chunk = "serverID=" + serverID + "&pass=" + serverPass + chunk;
 		var request = Web.POST(url, chunk);
-		Plugin.Log("SendLog", url + " [" + chunk + "]"); // ----------------------------- Remove This!
+		Plugin.Log("SendLog", request); // ----------------------------- Remove This!
 	}
-	
+	Plugin.Log("SendLog", url + " [" + chunk + "]"); // ----------------------------- Remove This!
 	return eval("(function(){return " + request + ";})()");
 }
 
@@ -113,7 +138,7 @@ function getAngle(angle) {
 // Use this for logging stuff
 function dataDump (fileName, eventName, dataObj, indent) {
 	if(indent == undefined){
-		var indent = "";
+		var indent = " - ";
 	}
 	Plugin.Log(fileName, eventName+": ");
 	Plugin.Log(fileName, "------");
@@ -129,6 +154,45 @@ function dataDump (fileName, eventName, dataObj, indent) {
 }
 
 // main plugin stuff:
+
+function On_PluginInit() { 
+    try {
+        if (!Plugin.IniExists("cfg_Core")) {
+            Plugin.CreateIni("cfg_Core");
+            var iniConf = Plugin.GetIni("cfg_Core");
+			iniConf.AddSetting("ServerInfo", "server", "http://rustard.com");
+			iniConf.AddSetting("ServerInfo", "serverID", 0); 
+            iniConf.AddSetting("ServerInfo", "serverPass", "");
+            iniConf.AddSetting("ServerInfo", "serverScript", "logger");
+
+            iniConf.AddSetting("Settings", "replaceRock", true);
+            iniConf.AddSetting("Settings", "defaultWeapon", "Stone Hatchet");
+
+            iniConf.Save();
+        }
+
+        Plugin.CreateTimer("playerLocations", 3 * 1000).Start();
+
+	    var data = {};
+		data['action'] = "ServerInit";
+		var response = {};
+		response = sendData(data);
+        
+    } catch (err) {
+        Plugin.Log("Error_log", "Error Message: " + err.message + " in On_PluginInit");
+        Plugin.Log("Error_log", "Error Description: " + err.description + " in On_PluginInit")
+    }
+    
+}
+
+function On_ServerInit() { 
+	Server.server_message_name = "Rustard"; 
+
+	
+	
+}
+
+
 
 function On_PlayerConnected(Player){
 
@@ -172,7 +236,7 @@ function On_PlayerDisconnected(Player){
 		data['action'] = "disconnect";
 		data['sid'] = Player.SteamID;
 		sendData(data);
-		
+
 }
 
 function On_PlayerSpawned(Player, spawnEvent) {
@@ -488,8 +552,18 @@ function On_Command(Player, cmd, args) {
 	
 		case "test":
 			
-			dataDump ("testdump", "event", Player, " - ");
+			if(!Plugin.GetTimer("playerLocations")) {
+				Server.Broadcast('starting timer...');
+		        Plugin.CreateTimer("playerLocations", 5 * 1000).Start();
+		    } else {
+		    	Server.Broadcast('timer already running!');
+		    }
 
+		break;
+
+		case "stop":
+			Server.Broadcast('killing timer');
+			Plugin.KillTimer("playerLocations");
 		break;
 
 		case "probe":
@@ -508,7 +582,6 @@ function On_Command(Player, cmd, args) {
 				Plugin.Log("Error_log", "Error Message: " + err.message + " in probe command");
 		        Plugin.Log("Error_log", "Error Description: " + err.description + " in probe command")
 			}
-
 		break;
 
 		case "plist":
@@ -516,7 +589,6 @@ function On_Command(Player, cmd, args) {
 			for(var Players in Server.Players) {
 				Server.Broadcast("P: " + Players.Name);
 			}
-
 		break;
 
 		case "now":
@@ -586,10 +658,10 @@ function On_Command(Player, cmd, args) {
 				Server.Broadcast("Error Message: " + err.message);
 				Server.Broadcast("Error Description: " + err.description);
 			}
-
 		break
 
 		case "location":
+
 			Player.Message(locator(Player));
 		break;
 
@@ -601,7 +673,6 @@ function On_Command(Player, cmd, args) {
 			Plugin.Log("Entities", "---------------------------------------------------------------------------------------------- ");
 			Plugin.Log("Entities", " . ");
 			Plugin.Log("Entities", " . ");
-
 		break;
 
 		case "prefabs":
@@ -617,7 +688,6 @@ function On_Command(Player, cmd, args) {
 			Plugin.Log("Prefabs", "---------------------------------------------------------------------------------------------- ");
 			Plugin.Log("Prefabs", " . ");
 			Plugin.Log("Prefabs", " . ");
-
 		break;
 		
     }
