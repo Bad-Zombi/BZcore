@@ -104,15 +104,15 @@ function sendData (data, method) {
 	if(method == true){
 		var url= server + "/" + serverScript + "?serverID=" + serverID + "&pass=" + serverPass + chunk;
 		var request = Web.GET(url);
-		Plugin.Log("SendLog", url); // ----------------------------- Remove This!
+		//Plugin.Log("SendLog", url); // ----------------------------- Remove This!
 	} else {
 		// default method it POST
 		var url= server + "/" + serverScript;
 		var chunk = "serverID=" + serverID + "&pass=" + serverPass + chunk;
 		var request = Web.POST(url, chunk);
-		Plugin.Log("SendLog", request); // ----------------------------- Remove This!
+		//Plugin.Log("SendLog", request); // ----------------------------- Remove This!
 	}
-	Plugin.Log("SendLog", url + " [" + chunk + "]"); // ----------------------------- Remove This!
+	//Plugin.Log("SendLog", url + " [" + chunk + "]"); // ----------------------------- Remove This!
 	return eval("(function(){return " + request + ";})()");
 }
 
@@ -263,16 +263,11 @@ function On_PluginInit() {
         Plugin.Log("Error_log", "Error Message: " + err.message + " in On_PluginInit");
         Plugin.Log("Error_log", "Error Description: " + err.description + " in On_PluginInit")
     }
-    
 }
 
 function On_ServerInit() { 
-	Server.server_message_name = "Rustard"; 
-	
-	
+	Server.server_message_name = "Rustard"; 	
 }
-
-
 
 function On_PlayerConnected(Player){
 
@@ -316,7 +311,6 @@ function On_PlayerDisconnected(Player){
 		data['action'] = "disconnect";
 		data['sid'] = Player.SteamID;
 		sendData(data);
-
 }
 
 function On_PlayerSpawned(Player, spawnEvent) {
@@ -354,8 +348,6 @@ function On_PlayerHurt(he) {
     	he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
     	//he.Attacker.InventoryNotice("player"); // ----------------------------- Remove This!
     }   
-
-    
 }
 
 function On_PlayerKilled(DeathEvent) {
@@ -725,10 +717,7 @@ function On_NPCKilled(DeathEvent) {
         Plugin.Log("Error_log", "Error Description: " + err.description + " in On_NPCKilled")
 
 	}
-
 }
-
-
 
 function On_EntityHurt(he) {
 
@@ -757,9 +746,6 @@ function On_EntityHurt(he) {
         Plugin.Log("Error_log", "Error Description: " + err.description + " in On_EntityHurt")
 
 	}
-
-	
-
 
 	if (he.Entity.Name == "MaleSleeper") {
 		try{
@@ -797,16 +783,95 @@ function On_EntityHurt(he) {
     	Server.Broadcast(he.Attacker.Name + " destroyed " + OwnerName + "'s " + he.Entity.Name + "!");
     }
 
+    dataDump ('itemstuff', 'hit', he);
+    dataDump ('itemstuff', 'entity', he.Entity);
 
+    try{
+	    if(he.Attacker == he.Entity.Owner){
+		    if(he.Entity.Name == "WoodCeiling" || he.Entity.Name == "MetalCeiling"){
+		    	var pendingtrap = DataStore.Get(he.Attacker.SteamID, "BZTpending");
+		    	if(pendingtrap != undefined && pendingtrap != "none"){
+			    	he.Attacker.Message("Trap set on trigger door : " + pendingtrap + ". ");
+			    	DataStore.Add("BZtraps", pendingtrap, he.Entity);
+					Datastore.Remove(he.Attacker.SteamID, "BZTpending");
+					DataStore.Remove(he.Attacker.SteamID, "BZpending");
+					DataStore.Save();
+				}
+		    }
+		}
+	} catch(err){
+		Server.Broadcast("Error Message: " + err.message);
+		Server.Broadcast("Error Description: " + err.description);
+	}
+    /*
+    if(Player == he.Entity.Owner) {
 
+    	
 
+	    var pendingtrap = DataStore.Get(Player.SteamID, "BZTpending");
+
+	    if(pendingtrap != undefined && pendingtrap != "none"){
+	    	Player.Message("linked door: " + pendingtrap + ". ");
+			//DataStore.Add(Player.SteamID, "BZTpending", de.Entity.InstanceID);
+			//Player.Message("Trap will be set on door: " + de.Entity.InstanceID) + ". ";
+			//Player.Message("Now hit the floor outside the door to mark it.";
+		} 
+	}
+	*/
+}
+
+function On_DoorUse(Player, de) {
+    
+    if(Player == de.Entity.Owner) {
+        
+
+        var pendingtrap = DataStore.Get(Player.SteamID, "BZpending");
+
+        if(pendingtrap != undefined && pendingtrap == "setTrap"){
+			DataStore.Add(Player.SteamID, "BZTpending", de.Entity.InstanceID);
+			Player.Message("Trap will be set on door: " + de.Entity.InstanceID + ". ");
+			Player.Message("Now hit the floor outside the door to mark it.");
+
+		} 
+        //var pendingtrap = DataStore.Get("BZtraps", de.Entity.InstanceID);
+
+        return;
+    } else {
+    	var trapped = DataStore.Get("BZtraps", de.Entity.InstanceID);
+    	if(trapped != undefined){
+    		Player.Message("Aaaah! Its a Trap!");
+    		//Player.Message("Target: " + trapped.InstanceID);
+    		
+    		trapped.Destroy();
+    		DataStore.Remove("BZtraps", de.Entity.InstanceID);
+			DataStore.Save();
+    	}
+    }
+}
+
+function resetTrapCallback (object, trigger) {
+	//World.Spawn(";struct_wood_ceiling", object.X, object.Y, object.Z);
 }
 
 function On_Command(Player, cmd, args) { 
 
 	cmd = Data.ToLower(cmd);
 	switch(cmd) {
-	
+
+		case "trap":
+			var pendingtrap = DataStore.Get(Player.SteamID, "BZpending");
+
+			if(pendingtrap != undefined && pendingtrap == "setTrap"){
+				DataStore.Add(Player.SteamID, "BZpending", "none");
+				Player.Message("Canceled trap setting.");
+			} else {
+				DataStore.Add(Player.SteamID, "BZpending", "setTrap");
+				Player.Message("The next door (which you own) you open will be trapped...");
+				// start a timer so this will expire and notify the user.
+			}
+
+		break;
+
 		case "test":
 			
 			if(!Plugin.GetTimer("playerLocations")) {
@@ -941,8 +1006,13 @@ function On_Command(Player, cmd, args) {
 		break;
 
 		case "entities":
+			var total = 20;
+			var count = 1;
 			for (var x in World.Entities) {
-			     Plugin.Log("Entities",   x.Name + "," + x.X + "," + x.Y + "," + x.Z);
+				if(count <= total){
+					dataDump ("Entities", "object", x);
+					count++;
+				}
 			}
 
 			Plugin.Log("Entities", "---------------------------------------------------------------------------------------------- ");

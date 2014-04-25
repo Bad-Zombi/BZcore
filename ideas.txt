@@ -62,3 +62,10 @@ would work best with doors since the storage sitting on the ceiling would probab
 possible scenario... stand in front of door and type /settrap ... targeted door will open and close of owned by user.  user then must "hit" the activated ceiling object with a melee weapon to identify it. 
 
 trap is saved in the traps datastore unded door instance... each trap will get a random number of uses. once its all used up, the user will get a notification of some sort.
+
+------
+
+close all doors at certain times?
+
+open all doors when a user is banned?
+
