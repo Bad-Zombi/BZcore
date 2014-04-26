@@ -69,3 +69,7 @@ close all doors at certain times?
 
 open all doors when a user is banned?
 
+------
+
+betting system for dueals and battles and such.
+
