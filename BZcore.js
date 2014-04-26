@@ -187,6 +187,35 @@
 			
 	}
 
+// BZtrap stuff:
+	// maybe add something that refreshes the trap list from time to time so if trigger or target items are removed it doesnt just sit there taking up space?
+	function triggerTrap(Player, type, item) {
+		
+		var trapped = DataStore.Get("BZtraps", item);
+		var trapowner = DataStore.Get("BZtraps", item+"_owner"); // check for references to this and remove them?
+		
+		
+		try{
+			
+			switch(type){
+				case "floor":
+					if(trapped != undefined){
+						Player.Notice("Aaaah! Its a Trap!");
+						Server.Broadcast(Player.Name + " triggered a trap set by " + trapowner.name);
+						//var newone = trapped;
+						trapped.Destroy();	
+						//newone.CreateInstance();					
+						DataStore.Remove("BZtraps", item);
+					}
+				break;
+			}
+			
+		} catch(err){
+			Server.Broadcast("Error Message: " + err.message);
+			Server.Broadcast("Error Description: " + err.description);
+		}
+	}
+
 // Thanks to Razztak (N4 Essentials) for these functions
 	function direcction(dir) {
 	    if ((dir > 337.5) || (dir < 22.5)) {
@@ -434,6 +463,7 @@
 	function On_PlayerSpawned(Player, spawnEvent) {
 		
 		Player.Notice("Welcome to RusTard " + Player.Name + "!");
+		Datastore.Remove("BZArrows", Player.SteamID);
 		// replace rock with default weapon
 			var replaceRock = Data.GetConfigValue(config, "Settings", "replaceRock");
 		    
@@ -912,7 +942,7 @@
 		    if(he.Attacker == he.Entity.Owner){
 
 		    	//dataWrite (he.Attacker, 'entity', he.Entity);
-		    	he.Attacker.Message(he.Entity.Health);
+		    	//he.Attacker.Message(he.Entity.Health);
 	    		//he.Entity.Health = 200;
 	    		//he.Attacker.Message(he.Entity.Health);
 
@@ -930,7 +960,10 @@
 				    	he.Attacker.Message("Trap set!");
 				    	//pendingtrap.Open
 				    	DataStore.Add("BZtraps", pendingtrap, he.Entity);
-				    	DataStore.Add("BZtraps", pendingtrap+"_owner", he.Entity.Owner);
+				    	var ownerinfo = {}
+				    	ownerinfo['name'] = he.Attacker.Name;
+				    	ownerinfo['sid'] = he.Attacker.SteamID;
+				    	DataStore.Add("BZtraps", pendingtrap+"_owner", ownerinfo);
 						Datastore.Remove(he.Attacker.SteamID, "BZTpending");
 						DataStore.Remove(he.Attacker.SteamID, "BZpending");
 						//DataStore.Save();	
@@ -958,44 +991,6 @@
 		*/
 	}
 
-	function triggerTrap(Player, item) {
-		var trapped = DataStore.Get("BZtraps", item);
-		var trapowner = DataStore.Get("BZtraps", item+"_owner");
-		
-		try{
-			
-			if(trapped != undefined){
-				Player.Notice("Aaaah! Its a Trap!");
-
-
-				try{
-					//var params = new ParamsList();
-		            //params.Add(trapped.X);
-		            //params.Add(trapped.Y);
-		            //params.Add(trapped.Z);
-		            //
-		            //var newObj = World.Spawn(";struct_metal_ceiling", trapped.X, trapped.Y, trapped.//Z);
-		            //dataWrite (Player, 'entity', newObj);
-		            //newObj.ChangeOwner(trapowner);
-		            //dataWrite (Player, 'entity', newObj);
-
-		            //params.Add(Player.Name);
-		            //Time.CreateTimer("checkPPtime", 2 * 1000, params).Start();
-				
-					trapped.Destroy();
-				} catch(err){
-					Server.Broadcast("Error Message: " + err.message);
-					Server.Broadcast("Error Description: " + err.description);
-				}
-				
-				DataStore.Remove("BZtraps", item);
-			}
-		} catch(err){
-			Server.Broadcast("Error Message: " + err.message);
-			Server.Broadcast("Error Description: " + err.description);
-		}
-	}
-
 	function On_DoorUse(Player, de) {
 	    
 	    if(Player == de.Entity.Owner) {
@@ -1017,18 +1012,25 @@
 				de.Open = false;
 
 			} else {
-				//triggerTrap (Player, de.Entity.InstanceID);
-				Player.Notice("This door has an active trap set!");
+				try{
+				//triggerTrap(Player, 'floor', de.Entity.InstanceID);
+				var trapped = DataStore.Get("BZtraps", de.Entity.InstanceID);
+				if(trapped != undefined){
+					Player.Notice("This door has an active trap set!");
+				}
+				
+			} catch(err){
+			Server.Broadcast("Error Message 1: " + err.message);
+			Server.Broadcast("Error Description 1: " + err.description);
+		}
 			}
 	        //var pendingtrap = DataStore.Get("BZtraps", de.Entity.InstanceID);
 	        
 	        return;
 	    } else {
-	    	triggerTrap (Player, de.Entity.InstanceID);
+	    	triggerTrap (Player, 'floor', de.Entity.InstanceID);
 	    }
 	}
-
-	
 
 	function On_PlayerGathering(Player, ge) {
 		//dataWrite (Player, 'gather', ge);
@@ -1101,15 +1103,44 @@
 			break;
 
 			case "trap":
-				var pendingtrap = DataStore.Get(Player.SteamID, "BZpending");
+				
+				if(args.Length == 1){
+					var type = Data.ToLower(args[0]);
+					if(type == "list"){
+						Player.MessageFrom("Traps", "Current trap types are \"[color#FFFF00]floor[/color]\" \"[color#FFFF00]spike[/color]\" and \"[color#FFFF00]C4[/color]\"");
+						Player.MessageFrom("Traps", "All traps cost 100 Paper to set. You must have 100 paper in your inventory.");
+						Player.MessageFrom("Traps", "Floor traps will destroy a selected floor/ceiling so victim will fall through.");
+						Player.MessageFrom("Traps", "Spike traps will drop a spike wall on the victim.");
+						Player.MessageFrom("Traps", "C4 traps will detonate the trapped object. Best used on empty (decoy) storage devices.");
+						Player.MessageFrom("Traps", "---------------------------------------------");
+						break;
+					} else if(type == "floor" || type == "spike" || type == "c4"){
+						// add process to check for paper before continuing. paper will not be removed until the trap is completed.
+						DataStore.Add(Player.SteamID, "BZpending", "setTrap");
+						DataStore.Add(Player.SteamID, "trapType", type);
+						Player.MessageFrom("Traps", "Select a door, box or stash to set a trap on. You must own this item.");
+						Player.MessageFrom("Traps", "---------------------------------------------");
+						break;
+					} else if(type == "cancel"){
+						var pendingtrap = DataStore.Get(Player.SteamID, "BZpending");
+						if(pendingtrap != undefined && pendingtrap == "setTrap"){
+							DataStore.Remove(Player.SteamID, "BZpending");
+							DataStore.Remove(Player.SteamID, "trapType");
+							Player.MessageFrom("Traps", "Canceled trap setting.");
+						} else {
+							Player.MessageFrom("Traps", "No traps are being set right now.");
+						}
+						break;
+					}
 
-				if(pendingtrap != undefined && pendingtrap == "setTrap"){
-					DataStore.Add(Player.SteamID, "BZpending", "none");
-					Player.Message("Canceled trap setting.");
+					break;
+					
 				} else {
-					DataStore.Add(Player.SteamID, "BZpending", "setTrap");
-					Player.Message("The next door you activate (which you own) will be trapped...");
-					// start a timer so this will expire and notify the user.
+					Player.MessageFrom("Traps", "Use \"/trap list\" for a lits of available traps and their prices.");
+					Player.MessageFrom("Traps", "\"/trap [color#FFFF00]type[/color]\" will start the process.");
+					Player.MessageFrom("Traps", "\"/trap cancel\" will cancel any trap setting.");
+					Player.MessageFrom("Traps", "---------------------------------------------");
+					break;
 				}
 
 			break;
