@@ -147,6 +147,46 @@
 		}
 	}
 
+
+// Arrow stuff Based in part off of ArrowRecovery (Fraccas)
+
+	function getArrows(SteamID, type){
+
+		if(type == "animal"){
+			var arrows = DataStore.Get("BZArrows", SteamID+"_animal");
+		} else {
+			var arrows = DataStore.Get("BZArrows", SteamID);
+		}
+		
+
+		if (arrows == undefined || arrows == null)
+			arrows = 0;
+
+		return parseInt(arrows);
+	}
+
+	function arrowHit(type, event) {
+		if (event.WeaponName == undefined && event.DamageAmount == 75){
+			var d = Math.random() * 100;
+			var BreakChance = 60; // -------------------------------------- set in ini?
+			if (d < BreakChance){
+				//event.Attacker.InventoryNotice("Snap!");
+			} else {
+				if(type == 'animal'){
+					var arrows = getArrows(event.Attacker.SteamID, 'animal') + 1;
+					//event.Attacker.Message(arrows + " in table");
+					DataStore.Add("BZArrows", event.Attacker.SteamID+"_animal", arrows);
+				} else {
+					var arrows = getArrows(event.Victim.SteamID, 'player') + 1;
+					//event.Attacker.Message(arrows + " in table");
+					DataStore.Add("BZArrows", event.Victim.SteamID, arrows);
+				}
+			}
+				
+		}
+			
+	}
+
 // Thanks to Razztak (N4 Essentials) for these functions
 	function direcction(dir) {
 	    if ((dir > 337.5) || (dir < 22.5)) {
@@ -689,9 +729,14 @@
 
 		he.Attacker.InventoryNotice(parseInt(he.DamageAmount) + " damage");
 		//he.Attacker.InventoryNotice("npc"); // ----------------------------- Remove This!
+		arrowHit('animal', he);
+
 	}
 
 	function On_NPCKilled(DeathEvent) {
+
+		arrowHit('animal', DeathEvent);
+
 		try{
 			DeathEvent.Attacker.InventoryNotice(parseInt(DeathEvent.DamageAmount) + " damage");
 
@@ -800,8 +845,6 @@
 	}
 
 	function On_EntityHurt(he) {
-
-
 
 		var OwnerSteamID = he.Entity.OwnerID.ToString();
 		var OwnerName = DataStore.Get(OwnerSteamID, "BZName");
@@ -983,6 +1026,68 @@
 	    } else {
 	    	triggerTrap (Player, de.Entity.InstanceID);
 	    }
+	}
+
+	
+
+	function On_PlayerGathering(Player, ge) {
+		//dataWrite (Player, 'gather', ge);
+		//dataWrite (Player, 'animal', ge.Animal);
+
+		//var original = ge.Quantity;
+		//var bonus = Math.round(ge.Quantity/4);
+		
+		switch(ge.Type){
+
+			case "Animal":
+
+				if(ge.PercentFull == 1 || ge.PercentFull <= 0.1){
+					var d = Math.random() * 100;
+
+					if(d >= 90){
+						var paper = 4;
+					} else if (d >= 75){
+						var paper = 3;
+					} else if (d >= 50){
+						var paper = 2;
+					} else if (d >= 25){
+						var paper = 1;
+					} else {
+						var paper = 0;
+					}
+					if(paper >= 1){
+						Player.InventoryNotice("You found " + paper + " Paper!");
+						Player.Inventory.AddItem("Paper", paper);
+					}		
+				}
+
+				var arrows = getArrows(Player.SteamID, 'animal');
+
+				if(arrows == 1){
+					//Player.InventoryNotice("+1 arrow");
+					Player.Message("[color#008000]You recovered an arrow from the corpse.");
+					Player.Inventory.AddItem("Arrow", arrows);
+					DataStore.Remove("BZArrows", Player.SteamID+'_animal');
+				} else if(arrows >= 2){
+					//Player.InventoryNotice("+" + arrows + " arrows");
+					Player.Message("[color#008000]You recovered " + arrows + " arrows from the corpse.");
+					Player.Inventory.AddItem("Arrow", arrows);
+					DataStore.Remove("BZArrows", Player.SteamID+"_animal");
+				}
+				
+			break;
+
+			case "WoodPile":
+
+			break;
+		}
+
+		//if(ge.Quantity < 20){
+		//	if(bonus > 0){
+		//		Player.InventoryNotice("[Bonus 25%] " + bonus + " x " + ge.Item);
+		//		Player.Inventory.AddItem(ge.Item, bonus);
+		//	}
+		//}
 	}
 
 	function On_Command(Player, cmd, args) { 
